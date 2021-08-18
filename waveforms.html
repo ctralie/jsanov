@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Simple Audio Waveforms</title>
+    <script src="libs/plotly.min.js"></script>
+    <script src="wav.js"></script>
+    <script src="audio.js"></script>
+    <link rel="stylesheet" type="text/css" href="assets/style.css">
+  </head>
+  <body>
+    <table>
+      <tr>
+        <td>
+          <button id = "play" onclick="playAudio()">▶️ Play Audio</button>
+        </td>
+        <td>
+          <button id = "download" onclick="downloadAudio()">Download Audio</button>
+        </td>
+      </tr>
+    </table>
+    
+
+    <div id="audioPlot"></div>
+
+    <script>
+      let sr = 44100;
+      let f = 440;
+      let N = sr*4;
+      let samples = new Float32Array(N);
+      for (let i = 0; i < N; i++) {
+        samples[i] = Math.cos(2*Math.PI*f*i/sr);
+      }
+      let s = new SampledAudio();
+      s.setSamples(samples, sr);
+
+      function playAudio() {
+        s.playAudio();
+      }
+
+      function downloadAudio() {
+        s.downloadAudio();
+      }
+    </script>
+
+    </body>
+</html>
