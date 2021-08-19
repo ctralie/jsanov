@@ -162,19 +162,37 @@ class SampledAudio {
   }
 
   /**
+   * Set the audio samples based on an array buffer
+   * @param {ArrayBuffer} data Array buffer with audio data
+   * @returns 
+   */
+  setSamplesAudioBuffer(data) {
+    let that = this;
+    return new Promise(resolve => {
+      that.audioContext.decodeAudioData(data, function(buff) {
+        that.setSamples(buff.getChannelData(0), buff.sampleRate);
+        resolve();
+      });
+    });
+  }
+
+  /**
    * Load in the samples from an audio file
    * @param {string} path Path to audio file
    * @returns A promise for when the samples have been loaded and set
    */
   loadFile(path) {
     let that = this;
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       $.get(path, function(data) {
         that.audioContext.decodeAudioData(data, function(buff) {
           that.setSamples(buff.getChannelData(0), buff.sampleRate);
           resolve();
         });
-      }, "arraybuffer");
+      }, "arraybuffer")
+      .fail(() => {
+        reject();
+      });
     });
   }
 
