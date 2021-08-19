@@ -80,7 +80,6 @@ function downloadSamples(samples, sr) {
     a.click();
 }
 
-
 class SampledAudio {
   constructor() {
     this.mediaRecorder = null;
@@ -96,6 +95,23 @@ class SampledAudio {
     // Handles for stop/start buttons
     this.startButton = null;
     this.stopButton = null;
+  }
+
+  /**
+   * Create a URL out of the audio samples of wav type and connect
+   * it to an HTML5 Audio DOM element
+   * @param {DOM Element} audioPlayer DOM element handle to an audio player
+   */
+  connectAudioPlayer(audioPlayer) {
+    let a = new Float32Array(this.samples);
+    // get WAV file bytes and audio params of your audio source
+    const wavBytes = getWavBytes(a.buffer, {
+        isFloat: true,       // floating point or 16-bit integer
+        numChannels: 1,
+        sampleRate: audio.sr,
+    })
+    const wav = new Blob([wavBytes], {type: 'audio/wav'});
+    audioPlayer.src = window.URL.createObjectURL(wav);
   }
 
   /**
