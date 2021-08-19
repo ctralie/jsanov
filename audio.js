@@ -19,24 +19,42 @@ function noteNum2Freq(p) {
  */
 function getMelFilterbank(win, sr, minFreq, maxFreq, nBins) {
     K = win/2+1;
-    /*
-    bins = np.logspace(np.log10(min_freq), np.log10(max_freq), n_bins+2)*win_length/sr
-    bins = np.array(np.round(bins), dtype=int)
-    Mel = np.zeros((n_bins, K))
-    for i in range(n_bins):
-        i1 = bins[i]
-        i2 = bins[i+1]
-        if i1 == i2:
-            i2 += 1
-        i3 = bins[i+2]
-        if i3 <= i2:
-            i3 = i2+1
-        tri = np.zeros(K)
-        tri[i1:i2] = np.linspace(0, 1, i2-i1)
-        tri[i2:i3] = np.linspace(1, 0, i3-i2)
-        Mel[i, :] = tri
-    return Mel
-    */
+    // Step 1: Compute mel-spaced bin locations
+    let a = Math.exp(Math.log(maxFreq/minFreq)/(nBins+1));
+    let bins = [minFreq*win/sr];
+    for (let i = 1; i < nBins+2; i++) {
+      bins[i] = bins[i-1]*a;
+    }
+    for (let i = 0; i < nBins+2; i++) {
+      bins[i] = Math.round(bins[i]);
+    }
+    // Step 2: Compute each row of the mel filterbank
+    // Allocate filterbank first
+    let Mel = [];
+    for (let i = 0; i < K; i++) {
+      Mel.push(new Float32Array(nBins));
+    }
+    // Now fill it in
+    for (let i = 0; i < nBins; i++) {
+      let i1 = bins[i];
+      let i2 = bins[i+1];
+      if (i1 == i2) {
+        i2++;
+      }
+      let i3 = bins[i+2];
+      if (i3 <= i2) {
+        i3 = i2 + 1;
+      }
+      let m = 1/(i2-i1);
+      for (let k = i1; k < i2; k++) {
+        Mel[k][i] = m*(k-i1);
+      }
+      m = -1/(i3-i2);
+      for (let k = i2; k < i3; k++) {
+        Mel[k][i] = 1 + m*(k-i2);
+      }
+    }
+    return Mel;
 }
 
 /**
@@ -266,6 +284,50 @@ class SampledAudio {
         for (let i = 0; i < novfn.length; i++) {
           for (let k = 0; k < Sdb[i].length; k++) {
             let diff = Sdb[i+1][k] - Sdb[i][k];
+            if (diff > 0) {
+              novfn[i] += diff;
+            }
+          }
+        }
+        resolve(novfn);
+      });
+    });
+  }
+
+  /**
+    Implement the superflux audio novelty function, as described in [1]
+    [1] "Maximum Filter Vibrato Suppresion for Onset Detection," 
+            Sebastian Boeck, Gerhard Widmer, DAFX 2013
+   * @param {int} win Window length between frames in the stft
+   * @param {int} hop Hop length between frames in the stft
+   * @param {int} maxWin Amount by which to apply a maximum filter (default 3)
+   * @param {int} mu The gap between windows to compare (default 1)
+   * @param {int} Gamma An offset to add to the log spectrogram; log10(|S| + Gamma) (default 10)
+   */
+  getSuperfluxNovfn(win, hop, maxWin, mu, Gamma) {
+    if (maxWin === undefined) {
+      maxWin = 1;
+    }
+    if (mu === undefined) {
+      mu = 3;
+    }
+    if (Gamma === undefined) {
+      Gamma = 1;
+    }
+    let that = this;
+    return new Promise(resolve => {
+      this.getSpectrogram(win, hop, false).then(S => {
+        let M = getMelFilterbank(win, that.sr, 27.5, Math.min(16000, that.sr/2), 138);
+        S = numeric.dot(S, M);
+        for (let i = 0; i < S.length; i++) {
+          for (let j = 0; j < S[i].length; j++) {
+            S[i][j] = Math.log10(S[i][j] + Gamma);
+          }
+        }
+        let novfn = new Float32Array(S.length-mu);
+        for (let i = 0; i < novfn.length; i++) {
+          for (let k = 0; k < S[i].length; k++) {
+            let diff = S[i+mu][k] - S[i][k];
             if (diff > 0) {
               novfn[i] += diff;
             }
