@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Record + Features</title>
+    <script src="libs/plotly.min.js"></script>
+    <script src="libs/fft.min.js"></script>
+    <script src="wav.js"></script>
+    <script src="audio.js"></script>
+    <link rel="stylesheet" href="assets/css/main.css" />
+  </head>
+  <body>
+    <h1>Basic Audio Waveform Generator</h1>
+    <h2>by <a href = "http://www.ctralie.com">Chris Tralie</a></h2>
+
+    <table>
+      <tr>
+        <td>
+          <button id="start" onclick="startRecording()">⏺️ Start recording...</button>
+        </td>
+        <td>
+          <button id="stop" onclick="stopRecording()">⏹️ Stop recording...</button>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <button id = "play" onclick="playAudio()">▶️ Play Audio</button>
+        </td>
+        <td>
+          <button id = "download" onclick="downloadAudio()">Download Audio</button>
+        </td>
+      </tr>
+    </table>
+    
+    <div id="featurePlot"></div>
+
+    <script>
+      let s = new SampledAudio();
+      function startRecording() {
+        s.startRecording("start", "stop");
+      }
+      function stopRecording() {
+        s.stopRecording();
+        s.audioPromise.then(()=>{
+          console.log(s.getSpectrogram(1024, 512));
+        });
+      }
+      function playAudio() {
+        s.playAudio();
+      }
+      function downloadAudio() {
+        s.downloadAudio();
+      }
+    </script>
+
+    </body>
+</html>

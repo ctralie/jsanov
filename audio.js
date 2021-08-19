@@ -42,6 +42,7 @@ class SampledAudio {
     this.audioBlob = null;
     this.samples = [];
     this.sr = 44100;
+    this.audioPromise = null;
 
     // Handles for stop/start buttons
     this.startButton = null;
@@ -55,6 +56,7 @@ class SampledAudio {
    */
   startRecording(startButtonStr, stopButtonStr) {
     let that = this;
+    this.audioPromise = null;
     this.recorder = new Promise(resolve => {
       this.startButton = document.getElementById(startButtonStr);
       this.stopButton = document.getElementById(stopButtonStr);
@@ -87,19 +89,21 @@ class SampledAudio {
       
       let that = this;
       this.mediaRecorder.stop();
-      this.recorder.then(chunks => {
-        that.audioBlob = new Blob(chunks, {type:'audio/mp3'});
-        const audioUrl = URL.createObjectURL(audioBlob);
-        that.audio = new Audio(audioUrl);
-        // Now plot and make reversed audio
-        that.audioBlob.arrayBuffer().then(
-          buffer => {
-            that.audioContext.decodeAudioData(buffer, function(buff) {
-              sr = buff.sampleRate;
-              that.samples= buff.getChannelData(0);
-            });
-          }
-        );
+      this.audioPromise = new Promise(resolve => {
+        that.recorder.then(chunks => {
+          that.audioBlob = new Blob(chunks, {type:'audio/mp3'});
+          const audioUrl = URL.createObjectURL(that.audioBlob);
+          that.audio = new Audio(audioUrl);
+          that.audioBlob.arrayBuffer().then(
+            buffer => {
+              that.audioContext.decodeAudioData(buffer, function(buff) {
+                that.sr = buff.sampleRate;
+                that.samples= buff.getChannelData(0);
+                resolve();
+              });
+            }
+          );
+        });
       });
     }
   }
@@ -112,6 +116,7 @@ class SampledAudio {
    * @param {int} sr Sample rate
    */
   setSamples(samples, sr) {
+    this.audioPromise = null;
     this.samples = samples;
     this.sr = sr;
     let audio = new Float32Array(samples);
@@ -160,8 +165,28 @@ class SampledAudio {
     Plotly.newPlot(plotName, [plot], layout);
   }
 
-  getSTFT(win, hop) {
-
+  /**
+   * Compute the spectrogram for the current audio samples
+   * @param {int} win Window length (assumed to be even)
+   * @param {int} hop Hop length
+   */
+  getSpectrogram(win, hop) {
+    let swin = win/2+1;
+    const fft = new FFTJS(win);
+    let W = Math.floor(1+(this.samples.length-win)/hop);
+    console.log("W = ", W);
+    let S = [];
+    for (let i = 0; i < W; i++) {
+      let x = this.samples.slice(i*hop, i*hop+win);
+      let s = fft.createComplexArray();
+      fft.realTransform(s, x);
+      let Si = new Float32Array(swin);
+      for (let k = 0; k < swin; k++) {
+        Si[k] = Math.sqrt(s[k*2]*s[k*2] + s[k*2+1]*s[k*2+1]);
+      }
+      S.push(Si);
+    }
+    return S;
   }
 
 
