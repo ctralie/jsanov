@@ -4,6 +4,8 @@
     <title>Record + Features</title>
     <script src="libs/plotly.min.js"></script>
     <script src="libs/fft.min.js"></script>
+    <script src="libs/jquery-3.5.1.min.js"></script>
+    <script src="libs/jquery.ajax.arraybuffer.min.js"></script>
     <script src="wav.js"></script>
     <script src="audio.js"></script>
     <link rel="stylesheet" href="assets/css/main.css" />
@@ -35,6 +37,7 @@
 
     <script>
       let s = new SampledAudio();
+
       function startRecording() {
         s.startRecording("start", "stop");
       }
