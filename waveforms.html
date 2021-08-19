@@ -5,9 +5,13 @@
     <script src="libs/plotly.min.js"></script>
     <script src="wav.js"></script>
     <script src="audio.js"></script>
-    <link rel="stylesheet" type="text/css" href="assets/style.css">
+    <script src="waveforms.js"></script>
+    <link rel="stylesheet" href="assets/css/main.css" />
   </head>
   <body>
+    <h1>Basic Audio Waveform Generator</h1>
+    <h2>by <a href = "http://www.ctralie.com">Chris Tralie</a></h2>
+
     <table>
       <tr>
         <td>
@@ -19,25 +23,55 @@
       </tr>
     </table>
     
+    <h2>Chosen Frequencies</h2>
+    <table id = "freqTable">
+      <tr>
+        <td><h4>Note</h4></td>
+        <td><h4>Frequency</h4></td>
+        <td><h4>Amplitude</h4></td>
+        <td><h4>Add/Remove</h4></td>
+      </tr>
+      <tr>
+        <td>
+          <div class = "select-wrapper">
+            <select id="NoteNumber" name = "Note Number">
+            </select>
+        </div>
+
+
+        </td>
+        <td></td>
+        <td>
+          <input type="range" min="0" max="100" value="100" class="slider" id="ampSlider">
+        </td>
+        <td>
+          <button id = "add" onclick="addNote()">Add Note</button>
+        </td>
+      </tr>
+    </table>
+
+    <h2>Audio Waveform</h2>
 
     <div id="audioPlot"></div>
 
     <script>
       let sr = 44100;
-      let f = 440;
-      let N = sr*4;
-      let samples = new Float32Array(N);
-      for (let i = 0; i < N; i++) {
-        samples[i] = Math.cos(2*Math.PI*f*i/sr);
-      }
       let s = new SampledAudio();
-      s.setSamples(samples, sr);
+      let w = new Waveform();
+      
+      function addNote() {
+        w.addMenuNote();
+      }
 
       function playAudio() {
+        let samples = w.makeWaveform(sr, sr*2);
+        s.setSamples(samples, sr);
         s.playAudio();
       }
 
       function downloadAudio() {
+        let samples = w.makeWaveform(sr, sr*2);
+        s.setSamples(samples, sr);
         s.downloadAudio();
       }
     </script>

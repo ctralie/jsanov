@@ -1,4 +1,13 @@
 /**
+ * Convert a note number to a frequency in hz (with 440 A as 0)
+ * 
+ * @param {int} p Note number 
+ */
+function noteNum2Freq(p) {
+  return 440*Math.pow(2, p/12);
+}
+
+/**
  * Download audio samples as a wave file
  * @param {array} samples Array of audio samples
  * @param {int} sr Sample rate
@@ -16,7 +25,7 @@ function downloadSamples(samples, sr) {
     const a = document.createElement('a');
     a.href = window.URL.createObjectURL(wav);
     a.style.display = 'none';
-    a.download = 'audioRev.wav';
+    a.download = 'audio.wav';
     document.body.appendChild(a);
     a.click();
 }
@@ -143,7 +152,8 @@ class SampledAudio {
       ys.push(this.samples[i]);
     }
     let plot = {x:xs, y:ys}
-    let layout = {title:'Audio samples',
+    let layout = {title:"Audio samples",
+                  xaxis:{title:"Time (Seconds)"},
                   autosize: false,
                   width: 800,
                   height: 400};
