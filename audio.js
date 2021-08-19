@@ -171,22 +171,32 @@ class SampledAudio {
    * @param {int} hop Hop length
    */
   getSpectrogram(win, hop) {
-    let swin = win/2+1;
-    const fft = new FFTJS(win);
-    let W = Math.floor(1+(this.samples.length-win)/hop);
-    console.log("W = ", W);
-    let S = [];
-    for (let i = 0; i < W; i++) {
-      let x = this.samples.slice(i*hop, i*hop+win);
-      let s = fft.createComplexArray();
-      fft.realTransform(s, x);
-      let Si = new Float32Array(swin);
-      for (let k = 0; k < swin; k++) {
-        Si[k] = Math.sqrt(s[k*2]*s[k*2] + s[k*2+1]*s[k*2+1]);
+    let that = this;
+    return new Promise(resolve => {
+      function process() {
+        let swin = win/2+1;
+        const fft = new FFTJS(win);
+        let W = Math.floor(1+(that.samples.length-win)/hop);
+        let S = [];
+        for (let i = 0; i < W; i++) {
+          let x = that.samples.slice(i*hop, i*hop+win);
+          let s = fft.createComplexArray();
+          fft.realTransform(s, x);
+          let Si = new Float32Array(swin);
+          for (let k = 0; k < swin; k++) {
+            Si[k] = Math.sqrt(s[k*2]*s[k*2] + s[k*2+1]*s[k*2+1]);
+          }
+          S.push(Si);
+        }
+        resolve(S);
       }
-      S.push(Si);
-    }
-    return S;
+      if (!that.audioPromise === null) {
+        process();
+      }
+      else {
+        that.audioPromise.then(process);
+      }
+    });
   }
 
 

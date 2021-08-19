@@ -40,9 +40,7 @@
       }
       function stopRecording() {
         s.stopRecording();
-        s.audioPromise.then(()=>{
-          console.log(s.getSpectrogram(1024, 512));
-        });
+        s.getSpectrogram(1024, 512).then(S => {console.log(S)});
       }
       function playAudio() {
         s.playAudio();
