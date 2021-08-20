@@ -236,3 +236,45 @@ function getRampBeats(novfn, beats) {
   }
   return ret;
 }
+
+/**
+ * Compute the spectral centroid of each frame of a spectrogram
+ * @param {2D Array} S Magnitude spectrogram
+ */
+function getSpectralCentroid(S) {
+  let centroid = new Float32Array(S.length);
+  for (let i = 0; i < S.length; i++) {
+    let weight = 0;
+    let sum = 0;
+    for (let j = 0; j < S[i].length; j++) {
+      sum += j*S[i][j];
+      weight += S[i][j];
+    }
+    centroid[i] = sum/weight;
+  }
+  return centroid;
+}
+
+/**
+ * Compute the spectral roloff of each frame of a spectrogram
+ * @param {2D Array} S Magnitude spectrogram
+ */
+ function getSpectralRoloff(S) {
+  let roloff = new Float32Array(S.length);
+  for (let i = 0; i < S.length; i++) {
+    let totalMag = 0;
+    for (let j = 0; j < S[i].length; j++) {
+      totalMag += S[i][j];
+    }
+    let mag = 0;
+    for (let j = 0; j < S[i].length; j++) {
+      let nextMag = mag + S[i][j];
+      if (mag < 0.85*totalMag && nextMag >= 0.85*totalMag) {
+        roloff[i] = j;
+        break;
+      }
+      mag = nextMag;
+    }
+  }
+  return roloff;
+}
