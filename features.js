@@ -224,26 +224,14 @@ function getBeats(novfn, sr, hop, tempo, alpha) {
  * Convert beats into a triangle function
  * @param {array} novfn Novelty function, in intervals of hop length
  * @param {array} beats Beat locations, in units of hop length, of each beat
- * @param {float} alpha Weight to apply to original novelty function
  */
-function getRampBeats(novfn, beats, alpha) {
+function getRampBeats(novfn, beats) {
   let ret = new Float32Array(novfn.length);
-  // Step 1: Start with normalized audio novelty function
-  let max = 0;
-  for (let i = 0; i < novfn.length; i++) {
-    if (novfn[i] > max) {
-      max = novfn[i];
-    }
-  }
-  for (let i = 0; i < novfn.length; i++) {
-    ret[i] = alpha*novfn[i]/max;
-  }
-  // Step 2: Create ramp function for beats
   for (let i = 0; i < beats.length-1; i++) {
     let i1 = beats[i];
     let i2 = beats[i+1];
     for (let k = i1; k < i2; k++) {
-      ret[k] += 1-2*Math.min(k-i1, i2-k)/(i2-i1);
+      ret[k] = 1-2*Math.min(k-i1, i2-k)/(i2-i1);
     }
   }
   return ret;
