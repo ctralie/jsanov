@@ -161,3 +161,90 @@ function getSuperfluxNovfn(samples, sr, win, hop, maxWin, mu, Gamma) {
     });
   });
 }
+
+
+/**
+ * An implementation of dynamic programming beat tracking
+ * @param {array} novfn An audio novelty function
+ * @param {int} sr Sample rate
+ * @param {int} hop Hop length used in the STFT to construct novfn
+ * @param {float} tempo The estimated tempo, in beats per minute
+ * @param {float} alpha The penalty for tempo deviation
+ * 
+ * @returns Beat locations, in units of hop length, of each beat
+ */
+function getBeats(novfn, sr, hop, tempo, alpha) {
+    let N = novfn.length;
+    let backlink = new Int32Array(N);
+    let cscore = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+      cscore[i] = novfn[i];
+    }
+    let period = Math.floor((60*sr/hop)/tempo);
+    let i1 = Math.floor(-2*period);
+    let i2 = Math.floor(-period/2);
+    let txcost = new Float32Array(i2-i1+1);
+    for (let i = 0; i < i2-i1+1; i++) {
+      txcost[i] = -alpha*Math.pow(Math.log(-(i1+i)/period), 2);
+    }
+    let scorecands = new Float32Array(txcost.length);
+    // prange = np.arange(i1, i2+1)
+    let idxcscore = 0;
+    for (let i = -i1+1; i < N; i++) {
+      //timerange = i + prange
+      // Search over all possible predecessors and
+      // apply transition weighting
+      let idx = 0;
+      for (let k = 0; k < scorecands.length; k++) {
+        scorecands[k] = txcost[k] + cscore[i1+i+k];
+        // Find the best predecessor beat
+        if (scorecands[k] > scorecands[idx]) {
+          idx = k;
+        }
+      }
+      // Add on local score
+      cscore[i] = scorecands[idx] + novfn[i];
+      // Store backtrace
+      backlink[i] = i + i1 + idx;
+      // Compute best cumulative score
+      if (cscore[i] > cscore[idxcscore]) {
+        idxcscore = i;
+      }
+    }
+    // Start backtrace from best cumulative score
+    beats = [idxcscore];
+    while (backlink[beats[beats.length-1]] != beats[beats.length-1]) {
+      beats.push(backlink[beats[beats.length-1]]);
+    }
+    beats.reverse();
+    return beats;
+}
+
+/**
+ * Convert beats into a triangle function
+ * @param {array} novfn Novelty function, in intervals of hop length
+ * @param {array} beats Beat locations, in units of hop length, of each beat
+ * @param {float} alpha Weight to apply to original novelty function
+ */
+function getRampBeats(novfn, beats, alpha) {
+  let ret = new Float32Array(novfn.length);
+  // Step 1: Start with normalized audio novelty function
+  let max = 0;
+  for (let i = 0; i < novfn.length; i++) {
+    if (novfn[i] > max) {
+      max = novfn[i];
+    }
+  }
+  for (let i = 0; i < novfn.length; i++) {
+    ret[i] = alpha*novfn[i]/max;
+  }
+  // Step 2: Create ramp function for beats
+  for (let i = 0; i < beats.length-1; i++) {
+    let i1 = beats[i];
+    let i2 = beats[i+1];
+    for (let k = i1; k < i2; k++) {
+      ret[k] += 1-2*Math.min(k-i1, i2-k)/(i2-i1);
+    }
+  }
+  return ret;
+}
