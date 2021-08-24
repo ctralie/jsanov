@@ -250,7 +250,9 @@ function getSpectralCentroid(S) {
       sum += j*S[i][j];
       weight += S[i][j];
     }
-    centroid[i] = sum/weight;
+    if (weight > 0) {
+      centroid[i] = sum/weight;
+    }
   }
   return centroid;
 }
