@@ -21,6 +21,37 @@ function downloadSamples(samples, sr) {
     a.click();
 }
 
+/**
+ * Convert a list of floating point samples into a mp3 binary
+ * @param {array} samples An array of floating points samples in the range [-1, 1]
+ * @param {int} sr Sample rate
+ * @param {int} kbps Kilobits per second
+ * 
+ * @return A Uint8Array with the binary data for the mp3 file
+ */
+function getMP3Binary(samples, sr, kbps) {
+  if (kbps === undefined) {
+    kbps = 128;
+  }
+  let samples16 = new Int16Array(samples.length);
+  for (let i = 0; i < samples.length; i++) {
+    samples16[i] = Math.round(samples[i]*32767);
+  }
+  console.log(samples);
+  console.log(samples16);
+  let mp3encoder = new lamejs.Mp3Encoder(1, sr, kbps);
+  let part1 = mp3encoder.encodeBuffer(samples16);
+  let part2 = mp3encoder.flush(); // End part of mp3
+  let res = new Uint8Array(part1.length + part2.length);
+  for (let i = 0; i < part1.length; i++) {
+    res[i] = part1[i];
+  }
+  for (let i = 0; i < part2.length; i++) {
+    res[part1.length+i] = part2[i];
+  }
+  return res;
+}
+
 class SampledAudio {
   constructor() {
     this.mediaRecorder = null;

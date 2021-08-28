@@ -3,6 +3,7 @@
   <head>
     <title>Simple Audio Waveforms</title>
     <script src="libs/plotly.min.js"></script>
+    <script src="libs/lame.min.js"></script>
     <script src="wav.js"></script>
     <script src="features.js"></script>
     <script src="audio.js"></script>
@@ -19,7 +20,10 @@
           <button id = "play" onclick="playAudio()">▶️ Play Audio</button>
         </td>
         <td>
-          <button id = "download" onclick="downloadAudio()">Download Audio</button>
+          <button id = "download" onclick="downloadWAV()">Download WAV</button>
+        </td>
+        <td>
+          <button id = "download" onclick="downloadMP3()">Download Mp3</button>
         </td>
       </tr>
     </table>
@@ -70,11 +74,25 @@
         s.playAudio();
       }
 
-      function downloadAudio() {
+      function downloadWAV() {
         let samples = w.makeWaveform(sr, sr*2);
         s.setSamples(samples, sr);
         s.downloadAudio();
       }
+
+      function downloadMP3() {
+        let samples = w.makeWaveform(sr, sr*2);
+        let bytes = getMP3Binary(samples, sr);
+        const mp3 = new Blob([bytes], {type: 'audio/mp3'});
+        // Create download link and append to DOM
+        const a = document.createElement('a');
+        a.href = window.URL.createObjectURL(mp3);
+        a.style.display = 'none';
+        a.download = 'audio.mp3';
+        document.body.appendChild(a);
+        a.click();
+      }
+
     </script>
 
     </body>
