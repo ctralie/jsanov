@@ -37,8 +37,6 @@ function getMP3Binary(samples, sr, kbps) {
   for (let i = 0; i < samples.length; i++) {
     samples16[i] = Math.round(samples[i]*32767);
   }
-  console.log(samples);
-  console.log(samples16);
   let mp3encoder = new lamejs.Mp3Encoder(1, sr, kbps);
   let part1 = mp3encoder.encodeBuffer(samples16);
   let part2 = mp3encoder.flush(); // End part of mp3

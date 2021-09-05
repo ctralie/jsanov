@@ -105,6 +105,26 @@ function getSpectrogram(samples, win, hop, useDb) {
 }
 
 /**
+ * Compute the power in each window, appealing to Parseval's theorem
+ * by summing the square of every element
+ * @param {2D Array} S Magnitude spectrogram with N windows
+ * 
+ * @return An array with N power samples
+ */
+function getSpectrogramPower(S) {
+  const N = S.length;
+  let res = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    let power = 0;
+    for (let k = 0; k < S[i].length; k++) {
+      power += S[i][k]*S[i][k];
+    }
+    res[i] = power;
+  }
+  return res
+}
+
+/**
  * Compute a naive audio novelty function of a set of audio samples
  * @param {array} samples Audio samples
  * @param {int} win Window length
@@ -298,7 +318,6 @@ function getACDFDFTTempo(novfn, hop, sr, maxPossible) {
   const maxBpm = bpm[maxIdx];
   strength.reverse();
   bpm.reverse();
-  console.log(maxIdx);
   return {"strength":strength, "bpm":bpm, "maxBpm":maxBpm};
 }
 
