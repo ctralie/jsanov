@@ -1,0 +1,101 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Record + Features</title>
+    <script src="libs/plotly.min.js"></script>
+    <script src="libs/fft.min.js"></script>
+    <script src="libs/numeric-1.2.6.min.js"></script>
+    <script src="libs/jquery-3.5.1.min.js"></script>
+    <script src="libs/jquery.ajax.arraybuffer.min.js"></script>
+    <script src="wav.js"></script>
+    <script src="features.js"></script>
+    <script src="audio.js"></script>
+    <link rel="stylesheet" href="assets/css/main.css" />
+  </head>
+  <body>
+    <h1>Tempo Estimation</h1>
+    <h2>by <a href = "http://www.ctralie.com">Chris Tralie</a></h2>
+
+    <table>
+      <tr>
+        <td>
+          <b>Upload Tune:</b><input type = "file" id = "tuneInput">
+        </td>
+        <td>
+          <button id = "play" onclick="playAudio()">▶️ Play Audio</button>
+        </td>
+      </tr>
+    </table>
+    
+    <div id="novfnPlot"></div>
+    <div id="tempoPlot"></div>
+
+    <script>
+      let audio = new SampledAudio();
+      function playAudio() {
+        audio.playAudio();
+      }
+      const win = 2048;
+      const hop = 512;
+
+      function plotNovfn(novfn) {
+        let xs = [];
+        let ys = [];
+        for (let i = 0; i < novfn.length; i++) {
+          xs.push(hop*i/audio.sr);
+          ys.push(novfn[i]);
+        }
+        let plot = {x:xs, y:ys};
+        let layout = {title:"Novelty Function",
+                      xaxis:{title:"Time (Seconds)"},
+                      autosize: false,
+                      width: 800,
+                      height: 400};
+        Plotly.newPlot("novfnPlot", [plot], layout);
+      }
+
+      function plotTempo(novfn) {
+        let res = getACDFDFTTempo(novfn, hop, audio.sr);
+        let maxTempos = getKHighestTempos(res.bpm, res.strength, 4);
+        for (let i = 0; i < maxTempos.length; i++) {
+          maxTempos[i] = Math.round(maxTempos[i]*1000)/1000;
+        }
+        let xs = [];
+        let ys = [];
+        for (let i = 0; i < res.bpm.length-1; i++) {
+          if (res.bpm[i] < 400) {
+            xs.push(res.bpm[i]);
+            ys.push(res.strength[i]);
+          }
+        }
+        let plot = {x:xs, y:ys};
+        let layout = {title:"Tempo Estimation (Max Est = " + res.maxBpm + ")\ntop 4: " + maxTempos,
+                      xaxis:{title:"Beats Per Minute"},
+                      autosize: false,
+                      width: 800,
+                      height: 400};
+        Plotly.newPlot("tempoPlot", [plot], layout);
+      }
+
+      function computeBeats() {
+        let novfn = audio.getSuperfluxNovfn(win, hop).then(function(res) {
+          plotNovfn(res.novfn);
+          plotTempo(res.novfn);
+        });
+      }
+
+      let tuneInput = document.getElementById('tuneInput');
+      tuneInput.addEventListener('change', function(e) {
+          let reader = new FileReader();
+          reader.onload = function(e) {
+              audio.setSamplesAudioBuffer(e.target.result).then(function(){
+                  computeBeats();
+              });
+          }
+          reader.readAsArrayBuffer(tuneInput.files[0]);
+      });
+
+    </script>
+
+    </body>
+</html>

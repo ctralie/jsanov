@@ -58,6 +58,19 @@ function getMelFilterbank(win, sr, minFreq, maxFreq, nBins) {
 }
 
 /**
+ * Compute the Hann window
+ * @param {int} N Length of window
+ * @returns Array with window
+ */
+function hannWindow(N) {
+  let window = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    window[i] = 0.5*(1 - Math.cos(2*Math.PI*i/N));
+  }
+  return window;
+}
+
+/**
  * Compute the spectrogram of a set of audio samples
  * @param {array} samples Audio samples
  * @param {int} win Window length
@@ -162,6 +175,159 @@ function getSuperfluxNovfn(samples, sr, win, hop, maxWin, mu, Gamma) {
   });
 }
 
+/**
+ * Fast autocorrelation based on the Wiener-Khinchin Theorem, which allows us
+ * to use the fast fourier transform of the input to compute the autocorrelation
+ * @param {array} x A time series
+ */
+function autocorr(x) {
+  let pad = x.length*2;
+  const N = Math.pow(2, Math.ceil(Math.log2(pad)));
+  let xpad = new Float32Array(N);
+  for (let i = 0; i < x.length; i++) {
+    xpad[i] = x[i];
+  }
+  const fft = new FFTJS(N);
+  xpad = fft.toComplexArray(xpad);
+  let s = fft.createComplexArray();
+  fft.transform(s, xpad);
+  for (let i = 0; i < s.length; i += 2) {
+    s[i] = s[i]*s[i] + s[i+1]*s[i+1];
+    s[i+1] = 0;
+  }
+  let sinv = fft.createComplexArray();
+  fft.inverseTransform(sinv, s);
+  let res = new Float32Array(x.length);
+  for (let i = 0; i < x.length; i++) {
+    res[i] = sinv[i*2];
+  }
+  return res;
+}
+
+
+/**
+ *  Compute the DFT, resampled to coincide with the samples in 
+ *  the autocorrelation
+ * @param {array} x Signal on which to compute the warped DFT
+ */
+function getDFTWarped(x) {
+  const N = x.length;
+  const fft = new FFTJS(N);
+  let s = fft.createComplexArray();
+  fft.realTransform(s, x);
+  let f = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    f[i] = Math.sqrt(s[i*2]*s[i*2] + s[i*2+1]*s[i*2+1]);
+  }
+  let ret = new Float32Array(N);
+  ret[0] = 0;
+  for (let T = 2; T < N; T++) {
+    const fT = N/T;
+    const i1 = Math.floor(fT)
+    const i2 = Math.ceil(fT)
+    const t = fT - i1
+    ret[T] = t*f[i2] + (1-t)*f[i1];
+  }
+  return ret;
+}
+
+/**
+ *  Estimate the tempo, in bpm, based on a combination of a warped
+ *  DFT and the autocorrelation of a novelty function, as described in 
+ *  section 3.1.1 of [1]
+ *  [1] "Template-Based Estimation of Time-Varying Tempo." Geoffroy Peeters.
+ *          EURASIP Journal on Advances in Signal Processing
+ * @param {array} novfn The novelty function (length N)
+ * @param {int} hop Hop length, in audio samples, between the samples in the audio
+ *                  novelty function
+ * @param {int} sr Sample rate of the audio
+ * @param {float} maxPossible Max possible tempo, in bpm
+ * 
+ * @return {
+ *  'strength': An array (length N) of the product of the ACF and warped DFT,
+ *  'bpm': An array (length N) of corresponding beats per minute,
+ *  'maxBpm': The maximum likelihood tempo, in beats per minute
+ * }
+ */
+function getACDFDFTTempo(novfn, hop, sr, maxPossible) {
+  if (maxPossible === undefined) {
+    maxPossible = 400;
+  }
+  // Compute max to normalize to prevent overflow
+  let maxnov = 0;
+  for (let i = 0; i < novfn.length; i++) {
+    if (novfn[i] > maxnov) {
+      maxnov = novfn[i];
+    } 
+  }
+  let novnorm = new Float32Array(novfn.length);
+  // Compute mean
+  let mean = 0;
+  for (let i = 0; i < novfn.length; i++) {
+    novnorm[i] = novfn[i] / maxnov;
+    mean += novnorm[i];
+  }
+  mean /= novfn.length;
+  const N = Math.pow(2, Math.ceil(Math.log2(novfn.length)));
+  let y = new Float32Array(N);
+  for (let i = 0; i < novfn.length; i++) {
+    y[i] = novnorm[i];
+  }
+  let r = autocorr(y);
+  for (let i = 0; i < novfn.length; i++) {
+    y[i] -= mean;
+  }
+  let f = getDFTWarped(y);
+  let strength = new Float32Array(N);
+  let bpm = new Float32Array(N);
+  let maxIdx = 0;
+  for (let i = 0; i < N; i++) {
+    if (i > 0) {
+      bpm[i] = sr*60/(i*hop);
+      if (bpm[i] < maxPossible) {
+        strength[i] = r[i]*f[i];
+        if (strength[i] > strength[maxIdx]) {
+          maxIdx = i;
+        }
+      }
+      else {
+        strength[i] = 0;
+      }
+    }
+  }
+  const maxBpm = bpm[maxIdx];
+  strength.reverse();
+  bpm.reverse();
+  console.log(maxIdx);
+  return {"strength":strength, "bpm":bpm, "maxBpm":maxBpm};
+}
+
+/**
+ * Return the k highest tempos
+ * @param {array} bpm Beats per minute
+ * @param {array} strength Beat strength
+ * @param {int} K Number of tempos to take
+ */
+function getKHighestTempos(bpm, strength, K) {
+  let revargsort = arr => arr.map((v, i) => [v, i]).
+                          sort(function(a, b){return b[0]-a[0]})
+                          .map(a => a[1]);
+  // Need to convert to regular array from typed array to apply function
+  // array mapping
+  let order = revargsort(Array.from(strength, (x) => parseFloat(x))); 
+  console.log(order);
+  let tempos = [];
+  let maxIdx = 0;
+  for (let i = 0; i < strength.length; i++) {
+    if (strength[i] > strength[maxIdx]) {
+      maxIdx = i;
+    }
+  }
+  for (let i = 0; i < K; i++) {
+    tempos[i] = bpm[order[i]];
+  }
+  return tempos;
+}
 
 /**
  * An implementation of dynamic programming beat tracking
