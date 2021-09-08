@@ -1,5 +1,7 @@
 // Requires base64-arraybuffer.js and randomstring.js to have been loaded first
 
+const SPOTIFY_LOGO_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Spotify_logo_vertical_black.jpg/1200px-Spotify_logo_vertical_black.jpg";
+
 // https://www.valentinog.com/blog/challenge/
 function generateCodeChallenge(codeVerifier) {
     return new Promise(resolve => {
@@ -38,32 +40,124 @@ class Spotify {
      *                            Spotify login and drop down menus
      * @param {string} clientID Spotify client_id for this app
      * @param {string} redirectURI Where to redirect after login
+     * @param {SampledAudio} audio An audio object to which to save the samples
+     * @param {function handle} loadCallback A callback to call when audio is loaded
      */
-    constructor (domElement, clientID, redirectURI) {
+    constructor (domElement, clientID, redirectURI, audio, loadCallback) {
+        this.domElement = domElement;
         this.clientID = clientID;
         this.redirectURI = redirectURI;
+        this.audio = audio;
+        this.loadCallback = loadCallback;
         this.accessToken = "";
         let code = findGetParameter("code");
         this.hasCode = false;
         if (code === null) {
             document.cookie = randomstring.generate(128);
+            this.setupMenu(domElement);
         }
         else {
             this.hasCode = true;
             this.tokenPromise = this.makeTokenRequest(code);
             this.tokenLoaded = false;
         }
-        this.setupMenu(domElement);
+    }
+
+    /**
+     * Fill in a menu based on a Spotify track response
+     * @param {object} response Spotify track response object
+     */
+    fillMenuSongResults(response) {
+        console.log(response);
+        this.songMenu.innerHTML = "";
+        let items = response.tracks.items;
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            // Only add item to menu if there's a 30 second preview
+            if ("preview_url" in item && !(item.preview_url === null)) {
+                let s = (i+1) + ": ";
+                if ("artists" in item) {
+                    let sartist = "";
+                    for (let k = 0; k < item.artists.length; k++) {
+                        const artist = item.artists[k];
+                        if ("name" in artist) {
+                            sartist += artist.name + ", ";
+                        }
+                    }
+                    s += sartist.slice(0, -2) + " - ";
+                }
+                if ("name" in item) {
+                    s += item.name;
+                }
+                let option = document.createElement("option");
+                option.innerHTML = s;
+                option.setAttribute("value", item.preview_url);
+                console.log(item);
+                console.log(item.preview_url);
+                this.songMenu.appendChild(option);
+            }
+        }
     }
 
     /**
      * Setup the spotify login button, search bar, and drop down menu
      * for song selection
-     * @param {*} domElement 
      */
-    setupMenu(domElement) {
-        let container = document.getElementById(domElement);
-        container.innerHTML = "";
+    setupMenu() {
+        const that = this;
+        let logo = document.createElement("img");
+        logo.src = SPOTIFY_LOGO_URL;
+        logo.width = 50;
+        let container = document.getElementById(this.domElement);
+        if (this.hasCode) {
+            let table = document.createElement("table");
+            let tr1 = document.createElement("tr");
+            let td = document.createElement("td");
+            td.appendChild(logo);
+            tr1.appendChild(td);
+            // Setup typing area
+            td = document.createElement("td");
+            this.trackInput = document.createElement("textarea");
+            this.trackInput.setAttribute("rows", 1);
+            this.trackInput.setAttribute("cols", 30);
+            td.appendChild(this.trackInput);
+            tr1.appendChild(td);
+            let searchButton = document.createElement("button");
+            searchButton.innerHTML = "Search";
+            searchButton.onclick = function() {
+                that.getSongData(that.trackInput.value).then(response => {
+                    that.fillMenuSongResults(response);
+                });
+            }
+            td.appendChild(searchButton);
+            tr1.appendChild(td);
+
+            // Setup song selection menu
+            td = document.createElement("td");
+            this.songMenu = document.createElement("select");
+            td.appendChild(this.songMenu);
+            let loadButton = document.createElement("button");
+            loadButton.innerHTML = "Load Tune";
+            loadButton.onclick = function() {
+                console.log(that.songMenu);
+                that.audio.loadFile(that.songMenu.value).then(function() {
+                    that.loadCallback(that.audio);
+                })
+            }
+            td.appendChild(loadButton);
+            tr1.appendChild(td)
+
+            table.appendChild(tr1);
+
+            container.appendChild(table);
+        }
+        else {
+            let loginButton = document.createElement("button");
+            loginButton.appendChild(logo);
+            loginButton.style = "width:50px;height:60px;padding:0px";
+            loginButton.onclick = this.login.bind(this);
+            container.appendChild(loginButton);
+        }
     }
 
     /**
@@ -83,7 +177,7 @@ class Spotify {
      * Log into Spotify
      */
     login() {
-        const that;
+        const that = this;
         generateCodeChallenge(document.cookie).then(base64Digest => {
             that.makeCodeRequest(base64Digest);
         });
@@ -97,7 +191,7 @@ class Spotify {
      */
     makeTokenRequest(code) {
         const that = this;
-        return new Promise((resolve, reject) => {
+        new Promise((resolve, reject) => {
             let data = {
                 client_id: that.clientID,
                 grant_type: "authorization_code",
@@ -125,11 +219,8 @@ class Spotify {
                 success: parseResp,
                 error: parseResp
             })
-        });
-    }
-
-    populateMenu(response) {
-
+        // Once token has been obtained we can show spotify stuff to the user
+        }).then(this.setupMenu.bind(this)); 
     }
 
     getSongData(query) {
