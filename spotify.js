@@ -41,14 +41,17 @@ class Spotify {
      * @param {string} clientID Spotify client_id for this app
      * @param {string} redirectURI Where to redirect after login
      * @param {SampledAudio} audio An audio object to which to save the samples
-     * @param {function handle} loadCallback A callback to call when audio is loaded
-     */
-    constructor (domElement, clientID, redirectURI, audio, loadCallback) {
+     * @param {function handle} successCallback A callback to call when audio is loaded
+     * @param {function handle} failCallback A callback to call when something fails
+     *                                       loading the audio 
+    */
+    constructor (domElement, clientID, redirectURI, audio, successCallback, failCallback) {
         this.domElement = domElement;
         this.clientID = clientID;
         this.redirectURI = redirectURI;
         this.audio = audio;
-        this.loadCallback = loadCallback;
+        this.successCallback = successCallback;
+        this.failCallback = failCallback;
         this.accessToken = "";
         let code = findGetParameter("code");
         this.hasCode = false;
@@ -112,16 +115,18 @@ class Spotify {
         if (this.hasCode) {
             let table = document.createElement("table");
             let tr1 = document.createElement("tr");
+            let tr2 = document.createElement("tr");
             let td = document.createElement("td");
             td.appendChild(logo);
             tr1.appendChild(td);
+            tr2.appendChild(document.createElement("td"));
             // Setup typing area
             td = document.createElement("td");
-            this.trackInput = document.createElement("textarea");
-            this.trackInput.setAttribute("rows", 1);
-            this.trackInput.setAttribute("cols", 30);
+            this.trackInput = document.createElement("input");
+            this.trackInput.setAttribute("type", "text");
             td.appendChild(this.trackInput);
             tr1.appendChild(td);
+            td = document.createElement("td");
             let searchButton = document.createElement("button");
             searchButton.innerHTML = "Search";
             searchButton.onclick = function() {
@@ -130,25 +135,28 @@ class Spotify {
                 });
             }
             td.appendChild(searchButton);
-            tr1.appendChild(td);
+            tr2.appendChild(td);
 
             // Setup song selection menu
             td = document.createElement("td");
             this.songMenu = document.createElement("select");
             td.appendChild(this.songMenu);
+            tr1.appendChild(td);
+            td = document.createElement("td");
             let loadButton = document.createElement("button");
             loadButton.innerHTML = "Load Tune";
             loadButton.onclick = function() {
                 console.log(that.songMenu);
                 that.audio.loadFile(that.songMenu.value).then(function() {
-                    that.loadCallback(that.audio);
+                    that.successCallback(that.audio);
+                }).catch(function() {
+                    that.failCallback();
                 })
             }
             td.appendChild(loadButton);
-            tr1.appendChild(td)
-
+            tr2.appendChild(td);
             table.appendChild(tr1);
-
+            table.appendChild(tr2);
             container.appendChild(table);
         }
         else {
