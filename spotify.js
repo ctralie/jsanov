@@ -124,6 +124,7 @@ class Spotify {
             td = document.createElement("td");
             this.trackInput = document.createElement("input");
             this.trackInput.setAttribute("type", "text");
+            this.trackInput.setAttribute("placeholder", "Enter spotify search");
             td.appendChild(this.trackInput);
             tr1.appendChild(td);
             td = document.createElement("td");
@@ -139,8 +140,11 @@ class Spotify {
 
             // Setup song selection menu
             td = document.createElement("td");
+            const songMenuWrapper = document.createElement("div");
+            songMenuWrapper.setAttribute("class", "select-wrapper");
             this.songMenu = document.createElement("select");
-            td.appendChild(this.songMenu);
+            songMenuWrapper.appendChild(this.songMenu);
+            td.appendChild(songMenuWrapper);
             tr1.appendChild(td);
             td = document.createElement("td");
             let loadButton = document.createElement("button");
