@@ -40,11 +40,11 @@
     <script>
       let s = new SampledAudio();
       function startRecording() {
-        s.startRecording("start", "stop");
+        s.startRecordingRealtime("start", "stop");
       }
       function stopRecording() {
-        s.stopRecording();
-        s.getSpectrogram(1024, 512).then(S => {console.log(S)});
+        s.stopRecordingRealtime();
+        //s.getSpectrogram(1024, 512).then(S => {console.log(S)});
       }
       function playAudio() {
         s.playAudio();

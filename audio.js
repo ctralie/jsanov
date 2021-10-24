@@ -98,6 +98,8 @@ class SampledAudio {
       const stopButton = this.stopButton;
       startButton.disabled = true;
       stopButton.disabled = false;
+      startButton.style.display = "none";
+      stopButton.style.display = "block";
       let chunks = [];
     
       navigator.mediaDevices.getUserMedia({ audio: true }).then(
@@ -125,6 +127,8 @@ class SampledAudio {
       const stopButton = this.stopButton;
       startButton.disabled = false;
       stopButton.disabled = true;
+      startButton.style.display = "block";
+      stopButton.style.display = "none";
       
       let that = this;
       this.mediaRecorder.stop();
@@ -144,6 +148,52 @@ class SampledAudio {
           );
         });
       });
+    }
+  }
+
+  /**
+     * 
+     * @param {string} startButtonStr DOM element name of start button
+     * @param {string} stopButtonStr DOM element name of stop button
+     */
+  startRecordingRealtime(startButtonStr, stopButtonStr, hopSize, winSize) {
+    const that = this;
+    this.startButton = document.getElementById(startButtonStr);
+    this.stopButton = document.getElementById(stopButtonStr);
+    const startButton = this.startButton;
+    const stopButton = this.stopButton;
+    startButton.disabled = true;
+    stopButton.disabled = false;
+    startButton.style.display = "none";
+    stopButton.style.display = "block";
+
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(
+      function(stream) {
+        const context = new AudioContext();
+        const source = context.createMediaStreamSource(stream);
+        const processor = context.createScriptProcessor(1024, 1, 1);
+        source.connect(processor);
+        processor.connect(context.destination);
+        processor.onaudioprocess = function(e) {
+          console.log(e.inputBuffer.getChannelData(0));
+        };
+        that.processor = processor;
+        that.source = source;
+        that.context = context;
+      }
+    );
+  }
+
+  stopRecordingRealtime() {
+    if (!(this.startButton === null || this.stopButton === null)) {
+      const startButton = this.startButton;
+      const stopButton = this.stopButton;
+      startButton.disabled = false;
+      stopButton.disabled = true;
+      startButton.style.display = "block";
+      stopButton.style.display = "none";
+      that.source.disconnect(that.processor);
+      that.processor.disconnect(context.destination);
     }
   }
 
