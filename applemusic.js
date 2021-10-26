@@ -1,6 +1,6 @@
 // Requires base64-arraybuffer.js and randomstring.js to have been loaded first
 
-const APPLE_LOGO_URL = "https://upload.wikimedia.org/wikipedia/commons/2/2a/Apple_Music_logo.svg";
+var APPLE_LOGO_URL = "https://upload.wikimedia.org/wikipedia/commons/2/2a/Apple_Music_logo.svg";
 const APPLE_SEARCH_URL = "https://itunes.apple.com/search?term=";
 
 let globalAppleResolve = null;
