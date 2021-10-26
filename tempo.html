@@ -13,7 +13,7 @@
     
     <script src="libs/base64-arraybuffer.js"></script>
     <script src="libs/randomstring.js"></script>
-    <script src="spotify.js"></script>
+    <script src="applemusic.js"></script>
     <link rel="stylesheet" href="assets/css/main.css" />
   </head>
   <body>
@@ -26,7 +26,7 @@
           <b>Upload Tune:</b><input type = "file" id = "tuneInput">
         </td>
         <td>
-          <div id="spotifyDiv"></div>
+          <div id="appleDiv"></div>
         </td>
         <td>
           <button id = "play" onclick="playAudio()">▶️ Play Audio</button>
@@ -104,7 +104,9 @@
           reader.readAsArrayBuffer(tuneInput.files[0]);
       });
 
-      let spotify = new Spotify("spotifyDiv", clientID, redirectURI, audio, computeBeats);
+      let apple = new AppleMusic("appleDiv", audio, computeBeats);
+
+
 
     </script>
 
