@@ -74,11 +74,13 @@ class Spotify {
         console.log(response);
         this.songMenu.innerHTML = "";
         let items = response.tracks.items;
+        let lineIdx = 1;
         for (let i = 0; i < items.length; i++) {
             const item = items[i];
             // Only add item to menu if there's a 30 second preview
             if ("preview_url" in item && !(item.preview_url === null)) {
-                let s = (i+1) + ": ";
+                let s = lineIdx + ": ";
+                lineIdx++;
                 if ("artists" in item) {
                     let sartist = "";
                     for (let k = 0; k < item.artists.length; k++) {
@@ -235,7 +237,16 @@ class Spotify {
         }).then(this.setupMenu.bind(this)); 
     }
 
-    getSongData(query) {
+    /**
+     * Make a request for a list of tracks
+     * @param {string} query Search query
+     * @param {int} limit How many tracks to return (default 100)
+     * @returns A promise that resolves to the response of this request
+     */
+    getSongData(query, limit) {
+        if (limit === undefined) {
+            limit = 20;
+        }
         const that = this;
         return new Promise(resolve => {
             if (!that.tokenLoaded) {
@@ -252,9 +263,12 @@ class Spotify {
                     });
                 }
             }
-            const url = "https://api.spotify.com/v1/search?query=" + encodeURIComponent(query) + "&offset=0&limit=20&type=track&access_token="+that.accessToken;
+            const url = "https://api.spotify.com/v1/search?query=" + encodeURIComponent(query) + "&offset=0&limit="+limit+"&type=track";
             $.ajax({
                 url: url,
+                type:"get",
+                dataType: "json",
+                headers:{"Authorization":"Bearer " + that.accessToken}
             }).done(function(response) {
                 resolve(response);
             });
