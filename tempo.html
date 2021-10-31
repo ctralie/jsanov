@@ -13,7 +13,7 @@
     
     <script src="libs/base64-arraybuffer.js"></script>
     <script src="libs/randomstring.js"></script>
-    <script src="spotify.js"></script>
+    <script src="applemusic.js"></script>
     <link rel="stylesheet" href="assets/css/main.css" />
   </head>
   <body>
@@ -26,7 +26,7 @@
           <b>Upload Tune:</b><input type = "file" id = "tuneInput">
         </td>
         <td>
-          <div id="spotifyDiv"></div>
+          <div id="appleDiv"></div>
         </td>
         <td>
           <button id = "play" onclick="playAudio()">▶️ Play Audio</button>
@@ -35,6 +35,7 @@
     </table>
     
     <div id="novfnPlot"></div>
+    <div id="beatPhasePlot"></div>
     <div id="tempoPlot"></div>
 
     <script>
@@ -63,6 +64,42 @@
         Plotly.newPlot("novfnPlot", [plot], layout);
       }
 
+      function plotBeatPhasefn(novfn) {
+        let fac = 4;
+        let info = initBayesFilterBeat(audio.sr, hop, fac);
+        let d = new Date(); 
+        let t1 = d.getTime();
+        let phases = [];
+        for (let i = 0; i < novfn.length; i += fac) {
+          let nov = 0;
+          for (let k = i; k < i+fac; k++) {
+            if (k < novfn.length) {
+              nov += novfn[k];
+            }
+          }
+          nov /= fac;
+          bayesFilterBeat(info, nov);
+          phases.push(info.phase);
+        }
+        d = new Date(); 
+        let t2 = d.getTime();
+        console.log(t2-t1);
+
+        let xs = [];
+        let ys = [];
+        for (let i = 0; i < phases.length; i++) {
+          xs.push(hop*fac*i/audio.sr);
+          ys.push(phases[i]);
+        }
+        let plot = {x:xs, y:ys};
+        let layout = {title:"Online Beat Phase",
+                      xaxis:{title:"Time (Seconds)"},
+                      autosize: false,
+                      width: 800,
+                      height: 400};
+        Plotly.newPlot("beatPhasePlot", [plot], layout);
+      }
+
       function plotTempo(novfn) {
         let res = getACDFDFTTempo(novfn, hop, audio.sr);
         let maxTempos = getKHighestTempos(res.bpm, res.strength, 4);
@@ -89,6 +126,7 @@
       function computeBeats() {
         let novfn = audio.getSuperfluxNovfn(win, hop).then(function(res) {
           plotNovfn(res.novfn);
+          plotBeatPhasefn(res.novfn);
           plotTempo(res.novfn);
         });
       }
@@ -104,7 +142,9 @@
           reader.readAsArrayBuffer(tuneInput.files[0]);
       });
 
-      let spotify = new Spotify("spotifyDiv", clientID, redirectURI, audio, computeBeats);
+      let apple = new AppleMusic("appleDiv", audio, computeBeats);
+
+
 
     </script>
 

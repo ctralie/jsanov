@@ -334,7 +334,6 @@ function getKHighestTempos(bpm, strength, K) {
   // Need to convert to regular array from typed array to apply function
   // array mapping
   let order = revargsort(Array.from(strength, (x) => parseFloat(x))); 
-  console.log(order);
   let tempos = [];
   let maxIdx = 0;
   for (let i = 0; i < strength.length; i++) {
@@ -421,6 +420,140 @@ function getRampBeats(novfn, beats) {
   }
   return ret;
 }
+
+
+/**  Online Beat Tracking via Bayes Filtering on Bar/Pointer Model  **/
+
+/**
+ * Setup a uniform initial probability distribution for online
+ * Bayes beat tracking
+ * 
+ * @param {int} sr Sample rate
+ * @param {int} hop Hop Length
+ * @param {int} fac Downsampling factor
+ * @param {float} lam Lambda for tempo transition at beat boundaries
+ *                    (Default 50)
+ * @param {int} minBPM Minimum tempo in beats per minute (default 40)
+ * @param {int} maxBPM Maximum tempo in beats per minute (default 200)
+ * @returns 
+ */
+function initBayesFilterBeat(sr, hop, fac, lam, minBPM, maxBPM) {
+  if (lam === undefined) {
+    lam = 50;
+  }
+  if (minBPM === undefined) {
+    minBPM = 40;
+  }
+  if (maxBPM === undefined) {
+    maxBPM = 200;
+  }
+  // Step 1: Initialize probability mass function
+  const delta = hop*fac/sr;
+  let M1 = Math.floor(60/(delta*minBPM));
+  let M2 = Math.floor(60/(delta*maxBPM));
+  let Ms = [];
+  let N = 0;
+  for (let M = M2; M <= M1; M++) {
+    Ms.push(M);
+    N += M;
+  }
+  let f = [];
+  for (let M = M2; M <= M1; M++) {
+    let fM = [];
+    for (let k = 0; k < M; k++) {
+      fM.push(1/N);
+    }
+    f.push(fM);
+  }
+  // Step 2: Initialize tempo transition table
+  N = M1-M2+1;
+  let btrans = [];
+  for (let i = 0; i < N; i++) {
+    btrans[i] = [];
+  }
+  for (let i = 0; i < N; i++) {
+    for (let j = i; j < N; j++) {
+      btrans[i][j] = Math.exp(-lam*Math.abs(Ms[i]/Ms[j] - 1))
+      btrans[j][i] = btrans[i][j];
+    }
+  }
+
+  return {"f":f, "Ms":Ms, "btrans":btrans, "max":150, "phase":0};
+}
+
+// TODO: Have web worker running in the background to do these steps
+
+/**
+ * Perform an in-place filtering of beat phase/tempo state probabilities
+ * 
+ * @param {object} info Contains 
+ *                 {
+ *                    "f": list: Current probability mass function
+ *                    "Ms": list: List of tempo lengths, parallel to M
+ *                    "btrans": 2d list: Transition likelihood from tempo i
+ *                                       to tempo j
+ *                    "max": The maximum value of the novelty function seen
+ *                           so far
+ *                    "phase": The estimated beat phase in [0, 1], where 1
+ *                             is a beat location and 0 directly in the middle
+ *                             of a beat
+ *                 }
+ * @param {float} nov New novelty sample
+ * @param {float} gamma Inner transition probability (default 0.3)
+ */
+function bayesFilterBeat(info, nov, gamma) {
+  if (gamma === undefined) {
+    gamma = 0.03;
+  }
+  if (nov > info.max) {
+    info.max = nov;
+  }
+
+  let N = info.Ms.length; // How many discrete tempo levels there are
+
+  // Step 1: Do transition probabilities
+  let g = [];
+  for (let i = 0; i < N; i++) {
+    let gM = info.f[i].slice(0, info.f[i].length-1);
+    // Do beat positions
+    let bProb = 0;
+    for (let j = 0; j < N; j++) {
+      bProb += info.btrans[i][j]*info.f[j][info.f[j].length-1];
+    }
+    gM.unshift(bProb);
+    g.push(gM);
+  }
+
+  // Step 2: Do measurement probabilities
+  let pBeat = nov/info.max;
+  let norm = 0;
+  let meanPhase = 0;
+  for (let i = 0; i < N; i++) {
+    // Do non beat positions
+    for (let k = 1; k < g[i].length; k++) {
+      g[i][k] *= gamma;
+      norm += g[i][k];
+      meanPhase += g[i][k]*(2*Math.abs(0.5-k/g[i].length));
+    }
+    // Beat position
+    g[i][0] *= pBeat;
+    norm += g[i][0];
+    meanPhase += g[i][0];
+  }
+  
+
+  // Step 3: Normalize and save
+  info.phase = meanPhase/norm;
+  for (let i = 0; i < N; i++) {
+    for (let k = 0; k < g[i].length; k++) {
+      info.f[i][k] = g[i][k]/norm;
+    }
+  }
+
+}
+
+
+
 
 /**
  * Compute the spectral centroid of each frame of a spectrogram
