@@ -155,9 +155,13 @@ class SampledAudio {
      * 
      * @param {string} startButtonStr DOM element name of start button
      * @param {string} stopButtonStr DOM element name of stop button
+     * @param {int} chunkSize Size of chunk to read before saving audio
+     * @param {function} onChunkRead A callback function to invoke every time a new
+     *                               chunk is ready
      */
-  startRecordingRealtime(startButtonStr, stopButtonStr, hopSize, winSize) {
+  startRecordingRealtime(startButtonStr, stopButtonStr, chunkSize, onChunkRead) {
     const that = this;
+    this.samples = [];
     this.startButton = document.getElementById(startButtonStr);
     this.stopButton = document.getElementById(stopButtonStr);
     const startButton = this.startButton;
@@ -169,13 +173,19 @@ class SampledAudio {
 
     navigator.mediaDevices.getUserMedia({ audio: true }).then(
       function(stream) {
-        const context = new AudioContext();
+        const context = new AudioContext({"sampleRate":that.sr});
         const source = context.createMediaStreamSource(stream);
-        const processor = context.createScriptProcessor(1024, 1, 1);
+        const processor = context.createScriptProcessor(chunkSize, 1, 1);
         source.connect(processor);
         processor.connect(context.destination);
         processor.onaudioprocess = function(e) {
-          console.log(e.inputBuffer.getChannelData(0));
+          let samples = e.inputBuffer.getChannelData(0);
+          for (let i = 0; i < samples.length; i++) {
+            that.samples.push(samples[i]);
+          }
+          if (!(onChunkRead === undefined)) {
+            onChunkRead();
+          }
         };
         that.processor = processor;
         that.source = source;
@@ -192,8 +202,8 @@ class SampledAudio {
       stopButton.disabled = true;
       startButton.style.display = "block";
       stopButton.style.display = "none";
-      that.source.disconnect(that.processor);
-      that.processor.disconnect(context.destination);
+      this.source.disconnect(this.processor);
+      this.processor.disconnect(this.context.destination);
     }
   }
 

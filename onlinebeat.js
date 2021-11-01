@@ -8,7 +8,8 @@ class OnlineBeat {
    * 
    * @param {SampledAudio} audio Audio object that will hold samples
    * @param {int} hop Hop Length
-   * @param {int} fac Downsampling factor
+   * @param {int} fac Number of adjacent novelty function samples that are
+   *                  averaged together into one novelty step
    * @param {float} lam Lambda for tempo transition at beat boundaries
    *                    (Default 80)
    * @param {int} minBPM Minimum tempo in beats per minute (default 40)
@@ -18,6 +19,8 @@ class OnlineBeat {
    */
   constructor(audio, hop, fac, lam, minBPM, maxBPM, gamma) {
     this.audio = audio;
+    this.hop = hop;
+    this.fac = fac;
     if (lam === undefined) {
       lam = 80;
     }
@@ -70,6 +73,7 @@ class OnlineBeat {
 
   /**
    * Perform an in-place filtering of beat phase/tempo state probabilities
+   * @param {float} nov Novelty function observation to incorporate
    */
   filter(nov) {
     if (nov > this.max) {
@@ -116,6 +120,105 @@ class OnlineBeat {
     }
   }
 
+
+  /**
+   * 
+   * @param {int} win Window length of FFT
+   * @param {int} mu The gap between windows to compare (default 1)
+   * @param {int} Gamma An offset to add to the log spectrogram; log10(|S| + Gamma) 
+   *                    (default 10)
+   * @param {function} phaseCallback A function to callback every time a 
+   *                                 new phase is available (optional)
+  */
+  startRecording(win, mu, Gamma, phaseCallback) {
+    if (mu === undefined) {
+      mu = 3;
+    }
+    if (Gamma === undefined) {
+      Gamma = 1;
+    }
+    this.win = win;
+    this.mu = mu;
+    this.Gamma = Gamma;
+    this.phaseCallback = phaseCallback;
+    this.swin = win/2+1;
+    this.fft = new FFTJS(win);
+    this.M = getMelFilterbank(win, this.audio.sr, 27.5, Math.min(16000, this.audio.sr/2), 138);
+    this.S = [];
+    this.novfn = [];
+    this.audio.startRecordingRealtime("start", "stop", hop, this.processChunk.bind(this));
+  }
+
+  processChunk() {
+    const that = this;
+    const audio = this.audio;
+    const hop = this.hop;
+    const win = this.win;
+    const S = this.S;
+    if (audio.samples.length >= win) {
+      // Do FFT on most recent window length chunk
+      let idx = (audio.samples.length-win)/hop;
+      let Si = {"finished":false, "vals":[]};
+      S[idx] = Si;
+      let p = new Promise(function(resolve) {
+        // Wait until last frame has finished processing, if there is one,
+        // to make sure they come in in order
+        if (idx > 0) {
+          if (!S[idx-1].finished) {
+            S[idx-1].promise.then(finalizeChunk(idx, resolve).bind(that));
+          }
+          else {
+            that.finalizeChunk(idx, resolve);
+          }
+        }
+        else {
+          that.finalizeChunk(idx, resolve);
+        }
+      });
+      Si["promise"] = p;
+    }
+  }
+
+  finalizeChunk(idx, resolve) {
+    const mu = this.mu;
+    const Gamma = this.Gamma;
+    const hop = this.hop;
+    const win = this.win;
+    const swin = this.swin;
+    const novfn = this.novfn;
+    const fac = this.fac;
+    const S = this.S;
+    let x = this.audio.samples.slice(idx*hop, idx*hop+win);
+    let s = this.fft.createComplexArray();
+    this.fft.realTransform(s, x);
+    let Si = new Float32Array(swin);
+    for (let k = 0; k < this.swin; k++) {
+      Si[k] = Math.log(s[k*2]*s[k*2] + s[k*2+1]*s[k*2+1] + Gamma);
+    }
+    Si = numeric.dot(Si, this.M);
+    this.S[idx].finished = true;
+    this.S[idx].vals = Si;
+    if (idx > mu) {
+      let nov = 0;
+      for (let k = 0; k < Si.length; k++) {
+        let diff = Si[k] - S[idx-mu].vals[k];
+        if (diff > 0) {
+          nov += diff;
+        }
+      }
+      novfn.push(nov);
+      if (novfn.length > fac && novfn.length%fac == 0) {
+        // Time for a new filter
+        nov = 0;
+        for (let k = 0; k < fac; k++) {
+          nov += novfn[novfn.length-fac+k];
+        }
+        this.filter(nov);
+        if (!(this.phaseCallback === undefined)) {
+          this.phaseCallback(this.phase);
+        }
+      }
+    }
+    resolve();
+  }
 }
-
-
