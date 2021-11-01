@@ -10,6 +10,7 @@
     <script src="wav.js"></script>
     <script src="features.js"></script>
     <script src="audio.js"></script>
+    <script src="onlinebeat.js"></script>
     
     <script src="libs/base64-arraybuffer.js"></script>
     <script src="libs/randomstring.js"></script>
@@ -66,7 +67,7 @@
 
       function plotBeatPhasefn(novfn) {
         let fac = 4;
-        let info = initBayesFilterBeat(audio.sr, hop, fac);
+        let beat = new OnlineBeat(audio, hop, fac);
         let d = new Date(); 
         let t1 = d.getTime();
         let phases = [];
@@ -78,8 +79,8 @@
             }
           }
           nov /= fac;
-          bayesFilterBeat(info, nov);
-          phases.push(info.phase);
+          beat.filter(nov);
+          phases.push(beat.phase);
         }
         d = new Date(); 
         let t2 = d.getTime();
