@@ -42,7 +42,7 @@
       function startRecording() {
         let fac = 4;
         let beat = new OnlineBeat(audio, hop, fac);
-        beat.startRecording(win, 3, 1, function(phase) {
+        beat.startRecording("start", "stop", win, 3, 1, function(phase) {
           phase = Math.floor(phase*255);
           colorDiv.style["background-color"] = "rgb("+phase+",0,0)";
         });

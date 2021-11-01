@@ -122,7 +122,8 @@ class OnlineBeat {
 
 
   /**
-   * 
+   * @param {string} startButtonStr DOM element name of start button
+   * @param {string} stopButtonStr DOM element name of stop button
    * @param {int} win Window length of FFT
    * @param {int} mu The gap between windows to compare (default 1)
    * @param {int} Gamma An offset to add to the log spectrogram; log10(|S| + Gamma) 
@@ -130,7 +131,7 @@ class OnlineBeat {
    * @param {function} phaseCallback A function to callback every time a 
    *                                 new phase is available (optional)
   */
-  startRecording(win, mu, Gamma, phaseCallback) {
+  startRecording(startButtonStr, stopButtonStr, win, mu, Gamma, phaseCallback) {
     if (mu === undefined) {
       mu = 3;
     }
@@ -146,7 +147,7 @@ class OnlineBeat {
     this.M = getMelFilterbank(win, this.audio.sr, 27.5, Math.min(16000, this.audio.sr/2), 138);
     this.S = [];
     this.novfn = [];
-    this.audio.startRecordingRealtime("start", "stop", hop, this.processChunk.bind(this));
+    this.audio.startRecordingRealtime(startButtonStr, stopButtonStr, this.hop, this.processChunk.bind(this));
   }
 
   processChunk() {
