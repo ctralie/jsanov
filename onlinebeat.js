@@ -66,8 +66,10 @@ class OnlineBeat {
     this.f = f;
     this.Ms = Ms;
     this.btrans = btrans;
-    this.max = 150;
+    this.maxNov = 150;
     this.phase = 0;
+    this.maxEnergy = 1;
+    this.energy = 0;
     this.gamma = gamma;
   }
 
@@ -76,8 +78,8 @@ class OnlineBeat {
    * @param {float} nov Novelty function observation to incorporate
    */
   filter(nov) {
-    if (nov > this.max) {
-      this.max = nov;
+    if (nov > this.maxNov) {
+      this.maxNov = nov;
     }
     const N = this.Ms.length; // How many discrete tempo levels there are
 
@@ -95,7 +97,7 @@ class OnlineBeat {
     }
 
     // Step 2: Do measurement probabilities
-    let pBeat = nov/this.max;
+    let pBeat = nov/this.maxNov;
     let norm = 0;
     let meanPhase = 0;
     for (let i = 0; i < N; i++) {
@@ -138,6 +140,8 @@ class OnlineBeat {
     if (Gamma === undefined) {
       Gamma = 1;
     }
+    this.maxNov = 150;
+    this.maxEnergy = 1;
     this.win = win;
     this.mu = mu;
     this.Gamma = Gamma;
@@ -193,9 +197,16 @@ class OnlineBeat {
     let s = this.fft.createComplexArray();
     this.fft.realTransform(s, x);
     let Si = new Float32Array(swin);
+    let energyChunk = 0;
     for (let k = 0; k < this.swin; k++) {
-      Si[k] = Math.log(s[k*2]*s[k*2] + s[k*2+1]*s[k*2+1] + Gamma);
+      let ek = s[k*2]*s[k*2] + s[k*2+1]*s[k*2+1];
+      energyChunk += ek;
+      Si[k] = Math.log(ek + Gamma);
     }
+    if (energyChunk > this.maxEnergy) {
+      this.maxEnergy = energyChunk;
+    }
+    this.energy = energyChunk/this.maxEnergy;
     Si = numeric.dot(Si, this.M);
     this.S[idx].finished = true;
     this.S[idx].vals = Si;

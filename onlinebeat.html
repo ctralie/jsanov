@@ -32,12 +32,14 @@
     </table>
     
     <span id = "colorDiv" style="font-size: xxx-large;">BEAT</span>
+    <span id = "energyDiv" style="font-size: xxx-large;">ENERGY</span>
 
     <script>
       let audio = new SampledAudio();
       const win = 2048;
       const hop = 512;
       const colorDiv = document.getElementById("colorDiv");
+      const energyDiv = document.getElementById("energyDiv");
 
       function startRecording() {
         let fac = 4;
@@ -45,6 +47,8 @@
         beat.startRecording("start", "stop", win, 3, 1, function(phase) {
           phase = Math.floor(phase*255);
           colorDiv.style["background-color"] = "rgb("+phase+",0,0)";
+          let energy = Math.floor(beat.energy*255);
+          energyDiv.style["background-color"] = "rgb(0,"+energy+",0)";
         });
       }
       function stopRecording() {
