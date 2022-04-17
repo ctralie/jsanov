@@ -98,10 +98,17 @@ class AppleMusic {
         const songMenuWrapper = document.createElement("div");
         songMenuWrapper.setAttribute("class", "select-wrapper");
         this.songMenu = document.createElement("select");
+        this.songMenu.onclick = function() {
+            that.audio.loadFile(that.songMenu.value).then(function() {
+                that.successCallback(that.audio);
+            }).catch(function() {
+                that.failCallback();
+            })
+        }
         songMenuWrapper.appendChild(this.songMenu);
         td.appendChild(songMenuWrapper);
         tr1.appendChild(td);
-        td = document.createElement("td");
+        /*td = document.createElement("td");
         let loadButton = document.createElement("button");
         loadButton.innerHTML = "Load Tune";
         loadButton.onclick = function() {
@@ -113,7 +120,7 @@ class AppleMusic {
             })
         }
         td.appendChild(loadButton);
-        tr2.appendChild(td);
+        tr2.appendChild(td);*/
         table.appendChild(tr1);
         table.appendChild(tr2);
         container.appendChild(table);
